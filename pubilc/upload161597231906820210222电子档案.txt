@@ -1,0 +1,1603 @@
+<template>
+    <div class="main">
+        <div class="navlist">
+            <el-breadcrumb separator="/">
+                <el-breadcrumb-item v-for="(item,index) of navlist"
+                                    :key="index"
+                                    :to="{ path: `${item.path}`}">
+                    {{item.name}}
+                </el-breadcrumb-item>
+            </el-breadcrumb>
+        </div>
+        <div class="search_bulid">
+            <el-form label-width="70px"
+                     :inline="true"
+                     :model="query"
+                     class="demo-form-inline"
+                     size="small">
+                <el-row style="margin-top: 10px;">
+                    <el-form-item label="网点号">
+                        <el-autocomplete v-model="queryStoreCode"
+                                         placeholder="网点号"
+                                         :fetch-suggestions="$common.searchStoreCode"
+                                         :trigger-on-focus="false"></el-autocomplete>
+                    </el-form-item>
+                    <el-form-item label="时间段">
+                        <el-date-picker v-model="query.datetime"
+                                        type="datetimerange"
+                                        range-separator="~"
+                                        start-placeholder="开始时间"
+                                        end-placeholder="结束时间"
+                                        :default-time="['00:00:00','23:59:59']"
+                                        value-format="yyyy-MM-dd HH:mm:ss"
+                                        @change="queryDataTimeChange">
+                        </el-date-picker>
+                    </el-form-item>
+                    <el-form-item label="关键字">
+                        <el-input v-model="query.typeName"
+                                  placeholder="请输入查询关键字">
+                        </el-input>
+                    </el-form-item>
+                    <el-form-item>
+                        <el-button type="primary"
+                                   class="btn-search"
+                                   @click="loadData('search')">搜索</el-button>
+                        <!-- <el-button type="primary"
+                                   class="top-search"
+                                   @click="maskStatus=true">高级搜索</el-button> -->
+                    </el-form-item>
+                </el-row>
+            </el-form>
+
+        </div>
+        <div class="data_con">
+            <div class="noData-wrapper"
+                 v-if="noSearchData">
+                <img src="@/../static/images/icon/nodata.png">
+            </div>
+            <el-tabs v-model="activeName"
+                     type="card"
+                     @tab-click="handleTabClick"
+                     v-if="!noSearchData">
+                <el-tab-pane label="时间线"
+                             name="first">
+                    <div class='time-line'>
+                        <div v-for='item,index in timeLineList'
+                             :key="item.key"
+                             class='time-line-div'>
+                            <div>{{item.time}}</div>
+                            <div ref='circular'></div>
+                            <div class="time-line-value">
+                                <p>
+                                    <span style='color:#409eff;cursor:pointer;'
+                                          @click="openTimelineDetail">{{showDetialText}}</span>
+                                </p>
+                                <p>
+                                    <span>类型：</span>{{item.type}}
+                                </p>
+                                <p>
+                                    <span>修改时间：</span>{{item.updateTime}}
+                                </p>
+                                <p>
+                                    <!-- lineTimeLookOver -->
+                                    <span>修改前：</span><span class="lookOver"
+                                          @click="LookOverInfo(item)">查看</span>
+                                </p>
+                                <p>
+                                    <span>修改后：</span><span class="lookOver"
+                                          @click="LookOverInfo(item)">查看</span>
+                                </p>
+                                <p>
+                                    <span>任务名称：</span>{{item.taskName}}
+                                </p>
+                                <p>
+                                    <span>提交时间：</span>{{item.submitTime}}
+                                </p>
+                                <p>
+                                    <span>提交人员：</span>{{item.submitPerson}}
+                                </p>
+                                <p>
+                                    <span>提交表单：</span><span class="lookOver"
+                                          @click="LookOverFormInfo(item)">查看</span>
+                                </p>
+                                <p>
+                                    <span>审核时间：</span>{{item.reviewTime}}
+                                </p>
+                                <p>
+                                    <span>审核时间：</span>{{item.handleStatus}}
+                                </p>
+                                <p>
+                                    <span>审核意见：</span>{{item.reviewMessage}}
+                                </p>
+                                <div class="search-item-details"
+                                     v-show="showDetial">
+                                    <div class="form-show">
+                                        <form-create :rule="formRule"
+                                                     :option="option"
+                                                     ref="fc"></form-create>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                        <div class='img-dotted'
+                             ref='dotted'></div>
+                    </div>
+                    <div class="pagesize">
+                        <el-pagination background
+                                       layout="total,prev, pager, next"
+                                       @current-change="clickPage('timeLine')"
+                                       :page-size="queryTimeLine.pageSize"
+                                       :total="queryTimeLine.pageNum">
+                        </el-pagination>
+                    </div>
+                </el-tab-pane>
+                <el-tab-pane label="业务类型"
+                             name="second">
+                    <el-tabs v-model="TypeactiveName"
+                             type="border-card"
+                             @tab-click="handleTabClick"
+                             v-if="!noSearchData">
+                        <el-tab-pane label="门店任务"
+                                     name="storeTask">
+                        </el-tab-pane>
+                        <el-tab-pane label="专管员任务"
+                                     name="ZGYTask">
+                        </el-tab-pane>
+                        <el-tab-pane label="临时任务"
+                                     name="temporary">
+                        </el-tab-pane>
+                        <el-tab-pane label="销量数据"
+                                     name="temporary">
+                        </el-tab-pane>
+                        <el-tab-pane label="销量数据"
+                                     name="temporary">
+                        </el-tab-pane>
+                        <el-tab-pane label="网点信息"
+                                     name="storeInfo">
+                        </el-tab-pane>
+                    </el-tabs>
+                    <div class="store-task-wrapper">
+                        <div class="type-name">门店任务</div>
+                        <el-table :data="tableDataOld"
+                                  border
+                                  highlight-current-row
+                                  stripe
+                                  style="width: 100%;background: #2196f3;">
+                            <el-table-column label="序号"
+                                             width="50px;">
+                                <template slot-scope="scope">
+                                    111
+                                    <!-- <span>{{(query.pageNo - 1) * query.pageSize + scope.$index + 1 }}</span> -->
+                                </template>
+                            </el-table-column>
+
+                            <el-table-column label="类型">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.username)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="阶段名称">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.nickName)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="发布时间">
+                                <template slot-scope="scope">
+                                    <span>{{$common.timestampToTime(scope.row.loginOutTime)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="任务内容">
+                                <template slot-scope="scope">
+                                    <!-- @click="(true,scope.row)" -->
+                                    <el-button type="text"
+                                               size="small">查看</el-button>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="查看时间">
+                                <template slot-scope="scope">
+                                    <span>{{$common.timestampToTime(scope.row.loginOutTime)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="回复人员">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.nickName)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="回复表单">
+                                <template slot-scope="scope">
+                                    <el-button type="text"
+                                               size="small">查看</el-button>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="审核时间">
+                                <template slot-scope="scope">
+                                    <span>{{$common.timestampToTime(scope.row.loginOutTime)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="状态">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.nickName)}}</span>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                        <el-collapse @change="handleOpenStoreTask">
+                            <el-collapse-item title="展开更多"
+                                              name="openName">
+                                <div class="pagesize">
+                                    <el-pagination background
+                                                   layout="prev, pager, next"
+                                                   @current-change="clickPage('queryStoreTask')"
+                                                   :page-size="queryStoreTask.pageSize"
+                                                   :total="queryStoreTask.pageNum">
+                                    </el-pagination>
+                                </div>
+                            </el-collapse-item>
+                        </el-collapse>
+
+                    </div>
+                    <div class="zgy-task-wrapper">
+                        <div class="type-name">专管员任务</div>
+                        <el-table :data="tableData"
+                                  border
+                                  highlight-current-row
+                                  stripe
+                                  style="width: 100%;background: #2196f3;">
+                            <el-table-column label="序号"
+                                             width="50px;">
+                                <template slot-scope="scope">
+                                    111
+                                    <!-- <span>{{(query.pageNo - 1) * query.pageSize + scope.$index + 1 }}</span> -->
+                                </template>
+                            </el-table-column>
+
+                            <el-table-column label="类型">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.username)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="阶段名称">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.nickName)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="发布时间">
+                                <template slot-scope="scope">
+                                    <span>{{$common.timestampToTime(scope.row.loginOutTime)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="任务内容">
+                                <template slot-scope="scope">
+                                    <el-button type="text"
+                                               size="small">查看</el-button>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="回复时间">
+                                <template slot-scope="scope">
+                                    <span>{{$common.timestampToTime(scope.row.loginOutTime)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="回复人员">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.nickName)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="回复表单">
+                                <template slot-scope="scope">
+                                    <el-button type="text"
+                                               size="small">查看</el-button>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="审核时间">
+                                <template slot-scope="scope">
+                                    <span>{{$common.timestampToTime(scope.row.loginOutTime)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="审核状态">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.nickName)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="评价表单">
+                                <template slot-scope="scope">
+                                    <el-button type="text"
+                                               size="small">查看</el-button>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                        <el-collapse @change="handleOpenZGYTask">
+                            <el-collapse-item title="展开更多"
+                                              name="openName">
+                                <div class="pagesize">
+                                    <el-pagination background
+                                                   layout="prev, pager, next"
+                                                   @current-change="clickPage('queryZGYTask')"
+                                                   :page-size="queryZGYTask.pageSize"
+                                                   :total="queryZGYTask.pageNum">
+                                    </el-pagination>
+                                </div>
+                            </el-collapse-item>
+                        </el-collapse>
+
+                    </div>
+                    <div class="temporary-task-wrapper">
+                        <div class="type-name">临时任务</div>
+                        <el-table :data="tableData"
+                                  border
+                                  highlight-current-row
+                                  stripe
+                                  style="width: 100%;background: #2196f3;">
+                            <el-table-column label="序号"
+                                             width="50px;">
+                                <template slot-scope="scope">
+                                    111
+                                    <!-- <span>{{(query.pageNo - 1) * query.pageSize + scope.$index + 1 }}</span> -->
+                                </template>
+                            </el-table-column>
+
+                            <el-table-column label="类型">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.username)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="任务名称">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.nickName)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="提交时间">
+                                <template slot-scope="scope">
+                                    <span>{{$common.timestampToTime(scope.row.loginOutTime)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="提交人员">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.nickName)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="提交表单">
+                                <template slot-scope="scope">
+                                    <el-button type="text"
+                                               size="small">查看</el-button>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="审核时间">
+                                <template slot-scope="scope">
+                                    <span>{{$common.timestampToTime(scope.row.loginOutTime)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="审核状态">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.nickName)}}</span>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                        <el-collapse @change="handleOpenTemporary">
+                            <el-collapse-item title="展开更多"
+                                              name="openName">
+                                <div class="pagesize">
+                                    <el-pagination background
+                                                   layout="total,prev, pager, next"
+                                                   @current-change="clickPage('queryTemporary')"
+                                                   :page-size="queryTemporary.pageSize"
+                                                   :total="queryTemporary.pageNum">
+                                    </el-pagination>
+                                </div>
+                            </el-collapse-item>
+                        </el-collapse>
+
+                    </div>
+                    <div class="sale-data-wrapper">
+                        <div class="type-name">销量数据</div>
+                        <el-table :data="tableData"
+                                  border
+                                  highlight-current-row
+                                  stripe
+                                  style="width: 100%;background: #2196f3;">
+                            <el-table-column label="序号"
+                                             width="50px;">
+                                <template slot-scope="scope">
+                                    111
+                                    <!-- <span>{{(query.pageNo - 1) * query.pageSize + scope.$index + 1 }}</span> -->
+                                </template>
+                            </el-table-column>
+
+                            <el-table-column label="类型">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.username)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="销量日期">
+                                <template slot-scope="scope">
+                                    <span>{{$common.timestampToTime(scope.row.loginOutTime)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="销量">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.nickName)}}</span>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                        <el-collapse @change="handleOpenSaleData">
+                            <el-collapse-item :title="`展开${queryStoreTask.total}条结果`"
+                                              name="openName">
+                                <div class="pagesize">
+                                    <el-pagination background
+                                                   layout="total,prev, pager, next"
+                                                   @current-change="clickPage('querySaleData')"
+                                                   :page-size="querySaleData.pageSize"
+                                                   :total="querySaleData.pageNum">
+                                    </el-pagination>
+                                </div>
+                            </el-collapse-item>
+                        </el-collapse>
+
+                    </div>
+                    <div class="store-status-wrapper">
+                        <div class="type-name">网点状态</div>
+                        <el-table :data="tableData"
+                                  border
+                                  highlight-current-row
+                                  stripe
+                                  style="width: 100%;background: #2196f3;">
+                            <el-table-column label="序号"
+                                             width="50px;">
+                                <template slot-scope="scope">
+                                    111
+                                    <!-- <span>{{(query.pageNo - 1) * query.pageSize + scope.$index + 1 }}</span> -->
+                                </template>
+                            </el-table-column>
+
+                            <el-table-column label="类型">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.username)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="修改时间">
+                                <template slot-scope="scope">
+                                    <span>{{$common.timestampToTime(scope.row.loginOutTime)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="修改内容">
+                                <template slot-scope="scope">
+                                    <el-button type="text"
+                                               size="small">查看</el-button>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                        <el-collapse @change="handleOpenStoreStatus">
+                            <el-collapse-item title="展开更多"
+                                              name="openName">
+                                <div class="pagesize">
+                                    <el-pagination background
+                                                   layout="total,prev, pager, next"
+                                                   @current-change="clickPage('queryStoreStatus')"
+                                                   :page-size="queryStoreStatus.pageSize"
+                                                   :total="queryStoreStatus.pageNum">
+                                    </el-pagination>
+                                </div>
+                            </el-collapse-item>
+                        </el-collapse>
+
+                    </div>
+                    <div class="store-info-wrapper">
+                        <div class="type-name">网点信息</div>
+                        <el-table :data="tableData"
+                                  border
+                                  highlight-current-row
+                                  stripe
+                                  style="width: 100%;background: #2196f3;">
+                            <el-table-column label="序号"
+                                             width="50px;">
+                                <template slot-scope="scope">
+                                    111
+                                    <!-- <span>{{(query.pageNo - 1) * query.pageSize + scope.$index + 1 }}</span> -->
+                                </template>
+                            </el-table-column>
+
+                            <el-table-column label="类型">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.username)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="修改时间">
+                                <template slot-scope="scope">
+                                    <span>{{$common.timestampToTime(scope.row.loginOutTime)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="修改内容">
+                                <template slot-scope="scope">
+                                    <el-button type="text"
+                                               size="small">查看</el-button>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                        <el-collapse @change="handleOpenStoreInfo">
+                            <el-collapse-item title="展开更多"
+                                              name="openName">
+                                <div class="pagesize">
+                                    <el-pagination background
+                                                   layout="total,prev, pager, next"
+                                                   @current-change="clickPage('queryStoreInfo')"
+                                                   :page-size="queryStoreInfo.pageSize"
+                                                   :total="queryStoreInfo.pageNum">
+                                    </el-pagination>
+                                </div>
+                            </el-collapse-item>
+                        </el-collapse>
+
+                    </div>
+                    <div class="server-status-wrapper">
+                        <div class="type-name">服务状态</div>
+                        <el-table :data="tableData"
+                                  border
+                                  highlight-current-row
+                                  stripe
+                                  style="width: 100%;background: #2196f3;">
+                            <el-table-column label="序号"
+                                             width="50px;">
+                                <template slot-scope="scope">
+                                    111
+                                    <!-- <span>{{(query.pageNo - 1) * query.pageSize + scope.$index + 1 }}</span> -->
+                                </template>
+                            </el-table-column>
+
+                            <el-table-column label="类型">
+                                <template slot-scope="scope">
+                                    <span>{{$common.isNull(scope.row.username)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="修改时间">
+                                <template slot-scope="scope">
+                                    <span>{{$common.timestampToTime(scope.row.loginOutTime)}}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="修改内容">
+                                <template slot-scope="scope">
+                                    <el-button type="text"
+                                               size="small">查看</el-button>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                        <el-collapse @change="handleOpenServerStatus">
+                            <el-collapse-item title="展开更多"
+                                              name="openName">
+                                <div class="pagesize">
+                                    <el-pagination background
+                                                   layout="total,prev, pager, next"
+                                                   @current-change="clickPage('queryServerStatus')"
+                                                   :page-size="queryServerStatus.pageSize"
+                                                   :total="queryServerStatus.pageNum">
+                                    </el-pagination>
+                                </div>
+                            </el-collapse-item>
+                        </el-collapse>
+
+                    </div>
+                </el-tab-pane>
+            </el-tabs>
+        </div>
+
+        <!-- <div class="mask"
+             v-if="maskStatus"></div>
+        <div class="look-relation"
+             v-if="maskStatus">
+            <h1>高级搜索</h1>
+            <div class="data">
+                <div class="data-item">高级搜索内容条件</div>
+            </div>
+            <div class="btn">
+                <el-button type="primary"
+                           @click="handleCorrectRelation">确定</el-button>
+                <el-button @click="maskStatus = false;">取消</el-button>
+            </div>
+        </div> -->
+        <!-- 时间线弹窗 -->
+        <div class="mask"
+             v-if="lineTimeLookStatus"></div>
+        <div class="look-relation"
+             v-if="lineTimeLookStatus">
+            <h1>内容</h1>
+            <div class="data-wrapper">
+                <div v-if="isFormLookOver">
+                    <form-create :rule="formRule"
+                                 :option="option"
+                                 ref="fc"></form-create>
+                </div>
+                <div v-if="!isFormLookOver">{{lookOverContent}}</div>
+            </div>
+            <div class="btn">
+                <el-button @click="lineTimeLookStatus = false;">取消</el-button>
+            </div>
+        </div>
+        <!--图片预览弹窗-->
+        <el-image-viewer v-if="dialog.visable"
+                         :on-close="closeViewer"
+                         :url-list="dialog.imgList" />
+        <!--视频预览-->
+        <div class="preview">
+            <el-dialog :visible.sync="videolog.visable">
+                <video v-if="videolog.visable"
+                       width="100%"
+                       height="500"
+                       :src="videolog.videoUrl"
+                       controls="controls" />
+            </el-dialog>
+        </div>
+    </div>
+</template>
+
+<script>
+import ElImageViewer from 'element-ui/packages/image/src/image-viewer'
+import formCreate from '@form-create/element-ui'
+import TextAreaComponent from '@/components/TextAreaComponent'
+import SysUploadComponent from '@/components/SysUploadComponent'
+import RadioNewComponent from '@/components/RadioNewComponent'
+import SignInOut from '@/components/SignInOut'
+import OssVideoUpload from '@/components/OssVideoUpload'
+import InputComponent from '@/components/InputComponent'
+// 动态表单使用自定义组件
+formCreate.component(TextAreaComponent.name,TextAreaComponent)
+formCreate.component(SysUploadComponent.name,SysUploadComponent)
+formCreate.component(RadioNewComponent.name,RadioNewComponent)
+formCreate.component(SignInOut.name,SignInOut)
+formCreate.component(OssVideoUpload.name,OssVideoUpload)
+formCreate.component(InputComponent.name,InputComponent)
+export default {
+    name: "ElectronicFile",
+    components: {
+        formCreate: formCreate.$form(),
+        ElImageViewer
+    },
+    data() {
+        return {
+            activeName: 'first',
+            maskStatus: false,
+            lineTimeLookStatus: false,//时间线上查看按钮的状态-弹窗
+            // activeNames: "openName1234",
+            openNameStatus: true,
+            navlist: [
+                { path: "./storemanage",name: "数据管理" },
+                { path: "./ElectronicFile",name: "电子档案" },
+            ],
+            noSearchData: false, //查询数据是否为空
+            isFormLookOver: false,//弹窗显示的是表单还是内容
+            queryStoreCode: '',
+            queryStartTime: '',
+            queryEndTime: '',
+            queryKeyWord: '',
+            queryTimeLine: {
+                pageSize: 10,
+                pageNum: 130,
+            },
+            queryStoreTask: {
+                total: 1132,
+                pageSize: 10,
+                pageNum: 130,
+            },
+            queryZGYTask: {
+                pageSize: 10,
+                pageNum: 110,
+            },
+            queryTemporary: {
+                pageSize: 10,
+                pageNum: 110,
+            },
+            querySaleData: {
+                pageSize: 10,
+                pageNum: 90,
+            },
+            queryStoreStatus: {
+                pageSize: 10,
+                pageNum: 80,
+            },
+            queryStoreInfo: {
+                pageSize: 10,
+                pageNum: 80,
+            },
+            queryServerStatus: {
+                pageSize: 10,
+                pageNum: 70,
+            },
+
+            videolog: {
+                visable: false,
+            },
+            dialog: {
+                visable: false
+            },
+            // form-create全局配置
+            option: {
+                form: {
+                    // label宽度
+                    labelWidth: "100%"
+                },
+                submitBtn: false,
+                global: {
+                    "*": {
+                        props: {
+                            disabled: true,
+                        }
+                    },
+                    "sys-upload": {
+                        props: {
+                            option: {
+                                action: process.env.VUE_APP_SERVER_URL+"oss/upload"
+                            },
+                            onView: (imgList,index) => {
+                                this.dialog.imgList=[];
+                                let tempImgList=[...imgList];
+                                let temp=[];
+                                for(let i=0;i<index;i++) {
+                                    temp.push(tempImgList.shift());
+                                }
+                                var arr=tempImgList.concat(temp);
+                                for(let i=0;i<arr.length;i++) {
+                                    if(arr[i] instanceof Array) {
+                                        arr[i]=arr[i][0]+'?x-oss-process=image/auto-orient,1'
+                                    }
+                                }
+                                this.dialog.imgList=arr;
+                                this.dialog.visable=true;
+                                // this.PreviewPic();
+                            },
+                            onSuccess: (url,imgList) => {
+                                imgList.push(url);
+                            },
+                        }
+                    },
+                    "oss-video-upload": {
+                        // 对upload组件的成功回调进行绑定
+                        props: {
+                            option: { action: process.env.VUE_APP_SERVER_URL+"oss/upload" },
+                            onView: url => {
+                                this.videolog.videoUrl=url;
+                                this.videolog.visable=true;
+                            },
+                            onSuccess: (url,videoList) => {
+                                videoList.push(url);
+                            },
+                        }
+                    },
+                    "signinout": {
+                        props: {
+                            onStorecode: (storecode) => {
+                                storecode.push(this.storeaddress);
+                            },
+                        },
+                        col: {}
+                    },
+                }
+            },
+            formRule: [{ "type": "SignInOut","field": "a1","title": "签到","value": ["","2021-02-19 17:29:30",""],"validate": [{ "type": "array","required": true,"message": "请打卡" }],"props": { "disabled": false,"isShow": true },"col": {},"emit": [],"on": {},"options": [] },{ "type": "radio","title": "巡查类型","field": "a2","value": 2,"options": [{ "value": 0,"label": "开业检查","placeholder": "选项1" },{ "value": 1,"label": "活动巡查","placeholder": "选项2" },{ "value": 2,"label": "合规检查","placeholder": "选项3" },{ "value": 3,"label": "营业检查","placeholder": "选项4" }],"validate": [{ "type": "string","required": true,"message": "必选项" }],"props": { "disabled": false,"isShow": true },"col": {},"emit": [],"on": {} },{ "type": "checkbox","title": "巡查内容","field": "a3","value": [1,2,4],"options": [{ "value": 0,"label": "销售技能","placeholder": "选项1" },{ "value": 1,"label": "规范确认","placeholder": "选项2" },{ "value": 2,"label": "销量情况","placeholder": "选项3" },{ "value": 3,"label": "终端状况","placeholder": "选项4" },{ "value": 4,"label": "网点宣传","placeholder": "选项5" }],"validate": [{ "type": "array","required": true,"message": "必选项" }],"props": { "disabled": false,"isShow": true },"col": {},"emit": [],"on": {} },{ "type": "text-input","title": "网点编号","field": "a6","value": "4417123451","verifyType": "数字","validate": [{ "type": "string","required": true,"message": "只能输入数字","pattern": "/^\\d{1,}$/" }],"props": { "disabled": false,"isShow": true },"col": {},"emit": [],"on": {},"options": [] },{ "type": "text-input","title": "业主姓名","field": "a7","value": "杨先生","verifyType": "文字","validate": [{ "type": "string","required": true,"message": "只能输入中文","pattern": "/^[\\u4e00-\\u9fa5]{1,}$/" }],"props": { "disabled": false,"isShow": true },"col": {},"emit": [],"on": {},"options": [] },{ "type": "text-input","title": "业主手机号","field": "a8","value": "13610223584","verifyType": "手机号码","validate": [{ "type": "string","required": true,"message": "请输入正确的手机号码","pattern": "/^1[3|4|5|6|7|8|9]\\d{9}$/" }],"props": { "disabled": false,"isShow": true },"col": {},"emit": [],"on": {},"options": [] },{ "type": "text-area","title": "问题反馈","field": "a10","value": "无特别问题可以不填122","validate": [{ "type": "string","required": false,"message": "必填项" }],"props": { "disabled": false,"isShow": true },"col": {},"emit": [],"on": {},"options": [] },{ "type": "sys-upload","title": "门店图片上传（仅拍照）","field": "a11","value": ["https://dingtalk-report-img.oss-cn-shenzhen.aliyuncs.com/mddd/camera_d9d2d25e6352954e4ee749b5b9fd8fe276495fd.jpg"],"props": { "disabled": false,"isShow": true,"capture": "camera" },"validate": [{ "type": "array","required": false,"max": 3,"message": "请上传1-3张图片" }],"col": {},"emit": [],"on": {},"options": [] },{ "type": "sys-upload","title": "宣传图片上传（拍照或选择图片）","field": "a12","value": ["https://dingtalk-report-img.oss-cn-shenzhen.aliyuncs.com/mddd/file_16137270411889784.jpg"],"props": { "disabled": false,"isShow": true,"capture": "false" },"validate": [{ "type": "array","required": false,"max": 3,"message": "请上传1-3张图片" }],"col": {},"emit": [],"on": {},"options": [] },{ "type": "oss-video-upload","title": "门店视频上传","field": "a13","value": [["https://dingtalk-report-img.oss-cn-shenzhen.aliyuncs.com/mddd/%E9%87%8D%E8%A3%85%E7%B3%BB%E7%BB%9F%E8%A7%86%E9%A2%91.mp4"]],"validate": [{ "type": "array","required": false,"max": 3,"message": "请上传1-3个视频" }],"props": { "disabled": false,"isShow": true },"col": {},"emit": [],"on": {},"options": [] },{ "type": "DatePicker","field": "a14","title": "活动时间","value": "2021-02-19 17:31:07","props": { "type": "datetime","format": "yyyy/MM/dd HH:mm:ss","placeholder": "请选择活动日期","disabled": false,"isShow": true,"valueFormat": "yyyy-MM-dd HH:mm:ss" },"validate": [{ "required": true,"message": "必选项" }],"col": {},"emit": [],"on": {},"options": [] },{ "type": "SignInOut","field": "a15","title": "签退","value": ["","2021-02-19 18:00:00",""],"validate": [{ "type": "array","required": true,"message": "请打卡" }],"props": { "disabled": false,"isShow": true },"col": {},"emit": [],"on": {},"options": [] }],//表单内容
+            query: {
+                typeName: null,
+                userName: null,
+                storeCode: '',
+                pageSize: 10,
+                pageNum: 0,
+                pageNo: 1,
+                userNameArr: [{ creator: "全部",creatorName: "全部" }],
+            },
+            tableData: [
+                {
+                    "_id": "5fbefdb3a5328f0e3efbb553",
+                    "dingId": "1301090751332021693",
+                    "username": "18938012691",
+                    "nickName": "4070002",
+                    "positionList": [
+                        "专管员"
+                    ],
+                    "system": "门店钉钉中台",
+                    "loginTime": "2021-01-21 11:04:57",
+                    "loginOutTime": "2020-12-30 09:58:01",
+                    "operation": "创建临时任务类型",
+                    "content": null,
+                    "tenantId": "4417"
+                },
+                {
+                    "_id": "5fbefdb3a5328f0e3efbb553",
+                    "dingId": "1301090751332021693",
+                    "username": "18938012691",
+                    "nickName": "4070002",
+                    "positionList": [
+                        "专管员"
+                    ],
+                    "system": "门店钉钉中台",
+                    "loginTime": "2021-01-21 11:04:57",
+                    "loginOutTime": "2020-12-30 09:58:01",
+                    "operation": "创建临时任务类型",
+                    "content": null,
+                    "tenantId": "4417"
+                },
+                {
+                    "_id": "5fbefdb3a5328f0e3efbb553",
+                    "dingId": "1301090751332021693",
+                    "username": "18938012691",
+                    "nickName": "4070002",
+                    "positionList": [
+                        "专管员"
+                    ],
+                    "system": "门店钉钉中台",
+                    "loginTime": "2021-01-21 11:04:57",
+                    "loginOutTime": "2020-12-30 09:58:01",
+                    "operation": "创建临时任务类型",
+                    "content": null,
+                    "tenantId": "4417"
+                },
+                {
+                    "_id": "5fbefdb3a5328f0e3efbb553",
+                    "dingId": "1301090751332021693",
+                    "username": "18938012691",
+                    "nickName": "4070002",
+                    "positionList": [
+                        "专管员"
+                    ],
+                    "system": "门店钉钉中台",
+                    "loginTime": "2021-01-21 11:04:57",
+                    "loginOutTime": "2020-12-30 09:58:01",
+                    "operation": "创建临时任务类型",
+                    "content": null,
+                    "tenantId": "4417"
+                },
+            ],
+            tableDataOld: [{
+                "_id": "5fbefdb3a5328f0e3efbb553",
+                "dingId": "1301090751332021693",
+                "username": "18938012691",
+                "nickName": "4070002",
+                "positionList": [
+                    "专管员"
+                ],
+                "system": "门店钉钉中台",
+                "loginTime": "2021-01-21 11:04:57",
+                "loginOutTime": "2020-12-30 09:58:01",
+                "operation": "创建临时任务类型",
+                "content": null,
+                "tenantId": "4417"
+            },
+            {
+                "_id": "5fbefdb3a5328f0e3efbb553",
+                "dingId": "1301090751332021693",
+                "username": "18938012691",
+                "nickName": "4070002",
+                "positionList": [
+                    "专管员"
+                ],
+                "system": "门店钉钉中台",
+                "loginTime": "2021-01-21 11:04:57",
+                "loginOutTime": "2020-12-30 09:58:01",
+                "operation": "创建临时任务类型",
+                "content": null,
+                "tenantId": "4417"
+            },],
+            timeLineList: [
+                { key: '1',time: '2001-01-01 01:00:00',type: '网点信息',updataTime: '2020-10-10',text: '第一步第一步第一步第一步第一步' },
+                { key: '2',time: '2001-01-01 01:00:00',type: '网点信息',updataTime: '2020-10-10',taskName: '任务名称',submitTime: '2020-12-12',submitPerson: '张三',submitForm: '123',reviewTime: '2020-12-12',handleStatus: '已完成',reviewMessage: '通过',text: '第一步第一步第一步第一步第一步' },
+            ],
+            storeTaskList: [],
+            storeTaskListOld: [],//旧数据网点任务
+            ZGYTaskList: [],
+            ZGYTaskListOld: [],//旧数据专管员任务
+            temporaryList: [],
+            temporaryListOld: [],//旧数据临时任务
+            saleDataList: [],
+            saleDataListOld: [],//旧数据销售数据
+            storeStatusList: [],
+            storeStatusListOld: [],//旧数据网点状态
+            storeInfoList: [],
+            storeInfoListOld: [],//旧数据网点信息
+            serverStatusList: [],
+            serverStatusListOld: [],//旧数据服务状态
+            isLoadingAll: true,//单独查询分页时需要改为false
+            showDetialText: "展开详情",
+            showDetial: false,
+            TypeactiveName: 'storeTask'
+        };
+    },
+    methods: {
+        //搜索时间段时间改变
+        queryDataTimeChange(val) {
+            if(val) {
+                this.queryStartTime=val[0];
+                this.queryEndTime=val[1];
+            } else {
+                this.queryStartTime="";
+                this.queryEndTime="";
+            }
+        },
+        //门店任务展开更多
+        handleOpenStoreTask() {
+            console.log(name)
+            if(this.openNameStatus) {
+                let newArr=this.tableData.splice(0,2);
+            }
+            // this.openNameStatus=!this.openNameStatus
+        },
+        // 专管员任务展开更多
+        handleOpenZGYTask() {
+            console.log("专管员")
+        },
+        // 临时任务展开更多
+        handleOpenTemporary() {
+            console.log("临时任务")
+        },
+        // 销量数据展开更多
+        handleOpenSaleData(val) {
+            //val.length判断
+            console.log("销量数据",val.length)
+        },
+        // 网点状态展开更多
+        handleOpenStoreStatus() {
+            console.log("网点状态")
+        },
+        // 网点信息展开更多
+        handleOpenStoreInfo() {
+            console.log("网点信息")
+        },
+        // 服务状态展开更多
+        handleOpenServerStatus() {
+            console.log("服务状态")
+        },
+
+        //切换tab选项卡事件
+        handleTabClick(tab,event) {
+            console.log(tab.name);
+        },
+        //在时间线节点上点击查看
+        lineTimeLookOver() {
+            this.lineTimeLookStatus=true;
+        },
+        // 点击查看 -信息内容
+        LookOverInfo(info) {
+            console.log("查看内容",info)
+            this.isFormLookOver=false;
+            this.lookOverContent=info.text;
+            this.lineTimeLookStatus=true;
+        },
+        // 点击查看 -表单内容
+        LookOverFormInfo(form) {
+            console.log("表单内容")
+            this.isFormLookOver=true;
+            this.formRule.forEach((item,index) => {
+                if(item.props&&item.props.disabled==false) {
+                    item.props.disabled=true;
+                }
+            })
+            this.lineTimeLookStatus=true;
+        },
+        //切换分页
+        clickPage(type) {
+            // if(type)
+            if(type=='timeLine') {
+                console.log("时间线");
+            } else if(type=='queryStoreTask') {
+                //门店任务
+                console.log("门店任务");
+            } else if(type=='queryZGYTask') {
+                console.log("专管员任务");
+                //专管员任务
+            } else if(type=='queryTemporary') {
+                console.log("临时任务");
+                //临时任务
+            } else if(type=='querySaleData') {
+                //销量数据
+                console.log("销量数据");
+            } else if(type=='queryStoreStatus') {
+                //网点状态
+                console.log("网点状态");
+            } else if(type=='queryStoreInfo') {
+                //网点信息
+                console.log("网点信息");
+            } else if(type=='queryServerStatus') {
+                //服务状态
+                console.log("服务状态");
+            }
+            // console.log("type",type);
+        },
+        //图片预览关闭
+        closeViewer() {
+            this.dialog.visable=false;
+        },
+        //获取时间线查询数据
+        getTimeLineData() {
+            const that=this;
+            if(!this.isLoadingAll) {
+                let Loading=that.$common.Loading(that,'正在加载中')
+            }
+            that.$http
+                .post(that.$api.submitStoreStageform,datajson)
+                .then((res) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    if(res.success) {
+                        that.$common.showMessage(that,"提交修改内容成功",true);
+                        that.chooseReceiver=false;
+                        that.Getstoredetails();
+                    }
+                })
+                .catch((err) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    that.$common.showMessage(that,"网络异常",false);
+                });
+        },
+        //获取门店任务查询数据
+        getStoreTaskData() {
+            const that=this;
+            if(!this.isLoadingAll) {
+                let Loading=that.$common.Loading(that,'正在加载中')
+            }
+            that.$http
+                .post(that.$api.submitStoreStageform,datajson)
+                .then((res) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    if(res.success) {
+                        that.$common.showMessage(that,"提交修改内容成功",true);
+                        that.chooseReceiver=false;
+                        that.Getstoredetails();
+                    }
+                })
+                .catch((err) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    that.$common.showMessage(that,"网络异常",false);
+                });
+        },
+        //获取专管员任务查询数据
+        getZGYTaskData() {
+            const that=this;
+            if(!this.isLoadingAll) {
+                let Loading=that.$common.Loading(that,'正在加载中')
+            }
+            that.$http
+                .post(that.$api.submitStoreStageform,datajson)
+                .then((res) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    if(res.success) {
+                        that.$common.showMessage(that,"提交修改内容成功",true);
+                        that.chooseReceiver=false;
+                        that.Getstoredetails();
+                    }
+                })
+                .catch((err) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    that.$common.showMessage(that,"网络异常",false);
+                });
+        },
+        //获取临时任务查询数据
+        getTemporaryData() {
+            const that=this;
+            if(!this.isLoadingAll) {
+                let Loading=that.$common.Loading(that,'正在加载中')
+            }
+            that.$http
+                .post(that.$api.submitStoreStageform,datajson)
+                .then((res) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    if(res.success) {
+                        that.$common.showMessage(that,"提交修改内容成功",true);
+                        that.chooseReceiver=false;
+                        that.Getstoredetails();
+                    }
+                })
+                .catch((err) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    that.$common.showMessage(that,"网络异常",false);
+                });
+        },
+        //获取销售数据
+        getSaleData() {
+            const that=this;
+            if(!this.isLoadingAll) {
+                let Loading=that.$common.Loading(that,'正在加载中')
+            }
+            that.$http
+                .post(that.$api.submitStoreStageform,datajson)
+                .then((res) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    if(res.success) {
+                        that.$common.showMessage(that,"提交修改内容成功",true);
+                        that.chooseReceiver=false;
+                        that.Getstoredetails();
+                    }
+                })
+                .catch((err) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    that.$common.showMessage(that,"网络异常",false);
+                });
+        },
+        //获取网点状态数据
+        getStoreStatusData() {
+            const that=this;
+            if(!this.isLoadingAll) {
+                let Loading=that.$common.Loading(that,'正在加载中')
+            }
+            that.$http
+                .post(that.$api.submitStoreStageform,datajson)
+                .then((res) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    if(res.success) {
+                        that.$common.showMessage(that,"提交修改内容成功",true);
+                        that.chooseReceiver=false;
+                        that.Getstoredetails();
+                    }
+                })
+                .catch((err) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    that.$common.showMessage(that,"网络异常",false);
+                });
+        },
+        //获取网点信息查询数据
+        getStoreInfoData() {
+            const that=this;
+            if(!this.isLoadingAll) {
+                let Loading=that.$common.Loading(that,'正在加载中')
+            }
+            that.$http
+                .post(that.$api.submitStoreStageform,datajson)
+                .then((res) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    if(res.success) {
+                        that.$common.showMessage(that,"提交修改内容成功",true);
+                        that.chooseReceiver=false;
+                        that.Getstoredetails();
+                    }
+                })
+                .catch((err) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    that.$common.showMessage(that,"网络异常",false);
+                });
+        },
+        // 获取服务状态查询数据
+        getServerStatusData() {
+            const that=this;
+            if(!this.isLoadingAll) {
+                let Loading=that.$common.Loading(that,'正在加载中')
+            }
+            that.$http
+                .post(that.$api.submitStoreStageform,datajson)
+                .then((res) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    if(res.success) {
+                        that.$common.showMessage(that,"提交修改内容成功",true);
+                        that.chooseReceiver=false;
+                        that.Getstoredetails();
+                    }
+                })
+                .catch((err) => {
+                    if(!that.isLoadingAll) {
+                        Loading.close()
+                    }
+                    that.$common.showMessage(that,"网络异常",false);
+                });
+        },
+        // 查询搜索所有数据
+        async getAllSearchAllData() {
+            const that=this;
+            that.isLoadingAll=true;
+            let Loadings=that.$common.Loading(that,"正在搜索中"); //所有接口都返回后再
+            await this.getTimeLineData();
+            await this.getStoreTaskData();
+            await this.getZGYTaskData();
+            await this.getTemporaryData();
+            await this.getSaleData();
+            await this.getStoreStatusData();
+            await this.getStoreInfoData();
+            await this.getServerStatusData();
+            setTimeout(() => { Loadings.close() },1000)
+
+        },
+        openTimelineDetail() {
+
+            if(this.showDetial) {
+                this.showDetial=false;
+                this.showDetialText="展开详情"
+            } else {
+                this.showDetial=true;
+                this.showDetialText="收起详情"
+            }
+            console.log("查看");
+        }
+
+    },
+    mounted() {
+        this.$refs.dotted.style.left=this.$refs.circular[0].offsetLeft+6+'px'; //设置时间线原点直线位置
+        this.$common.flushStoreCode(); //刷新用于模糊匹配的网点
+        // this.getAllSearchAllData(); //全局搜索
+    },
+    watch: {
+        //查询网点号
+        queryStoreCode(val) {
+            this.queryTimeLine.storecode=val;
+            this.queryStoreTask.storecode=val;
+            this.queryZGYTask.storecode=val;
+            this.queryTemporary.storecode=val;
+            this.querySaleData.storecode=val;
+            this.queryStoreStatus.storecode=val;
+            this.queryStoreInfo.storecode=val;
+            this.queryServerStatus.storecode=val;
+        },
+        queryStartTime(val) {
+            this.queryTimeLine.startTime=val;
+            this.queryStoreTask.startTime=val;
+            this.queryZGYTask.startTime=val;
+            this.queryTemporary.startTime=val;
+            this.querySaleData.startTime=val;
+            this.queryStoreStatus.startTime=val;
+            this.queryStoreInfo.startTime=val;
+            this.queryServerStatus.startTime=val;
+        },
+        queryEndTime(val) {
+            this.queryTimeLine.endTime=val;
+            this.queryStoreTask.endTime=val;
+            this.queryZGYTask.endTime=val;
+            this.queryTemporary.endTime=val;
+            this.querySaleData.endTime=val;
+            this.queryStoreStatus.endTime=val;
+            this.queryStoreInfo.endTime=val;
+            this.queryServerStatus.endTime=val;
+        },
+        queryKeyWord(val) {
+            this.queryTimeLine.keyWorld=val;
+            this.queryStoreTask.keyWorld=val;
+            this.queryZGYTask.keyWorld=val;
+            this.queryTemporary.keyWorld=val;
+            this.querySaleData.keyWorld=val;
+            this.queryStoreStatus.keyWorld=val;
+            this.queryStoreInfo.keyWorld=val;
+            this.queryServerStatus.keyWorld=val;
+        },
+    },
+
+};
+</script>
+
+<style scoped>
+.data_con {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+.data_con >>> .has-gutter th {
+    background: #2196f3;
+    color: #fff;
+}
+.data_con >>> .el-table__expanded-cell {
+    padding-left: 60px !important;
+}
+
+.data_con >>> .el-table tr {
+    color: #000;
+}
+.data_con >>> .el-table__body-wrapper {
+    background: #fff;
+}
+.data_con >>> .el-table__empty-block {
+    background: #fff;
+}
+.data_con >>> .el-table td {
+    padding: 8px 0;
+}
+.main {
+    width: calc(100% - 260px);
+    height: auto;
+    position: absolute;
+    top: 76px;
+    left: 220px;
+    text-align: left;
+}
+.main .search_bulid {
+    display: flex;
+    justify-content: space-between;
+    margin: 20px 0 0px 0;
+    font-size: 14px;
+}
+.main .search_bulid >>> .el-date-editor {
+    width: 350px;
+}
+.main .search_bulid .search {
+    display: flex;
+    /* flex-wrap: wrap; */
+    /* line-height: 50px; */
+}
+.main .search_bulid .search >>> .el-input-group__append {
+    background: #2196f3;
+    color: #fff;
+}
+.main .search_bulid .search .top-search {
+    margin-left: 20px;
+}
+.main .search_bulid .search .taskname {
+    margin-right: 20px;
+}
+.main .search_bulid .search >>> .el-input {
+    width: 350px;
+}
+.data_con {
+    margin-top: 20px;
+}
+.pagesize {
+    text-align: right;
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+.mask {
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: block;
+    z-index: 100;
+}
+.look-relation {
+    width: 500px;
+    height: auto;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    -webkit-transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%);
+    background: #fff;
+    z-index: 1000;
+    /* margin: -250px 0 0 -300px; */
+}
+.look-relation .data-wrapper {
+    /* width: calc(100% - 40px); */
+    max-height: 400px;
+    overflow: hidden;
+    overflow-y: auto;
+    padding: 10px 30px;
+}
+
+.look-relation h1 {
+    width: 90%;
+    margin-left: 5%;
+    line-height: 40px;
+    border-bottom: 1px solid #c5c6c8;
+    color: #2c3e50;
+    font-size: 16px;
+    letter-spacing: 2px;
+    text-align: center;
+}
+
+.look-relation .btn {
+    margin: 20px 0;
+    text-align: center;
+}
+.look-relation .data-wrapper::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.look-relation .data-wrapper::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.08);
+}
+.look-relation .data-wrapper::-webkit-scrollbar-track {
+    border-radius: 10px;
+}
+.look-relation .data-wrapper >>> .el-form-item__content {
+    margin-left: 0px !important;
+    width: 100%;
+    float: left;
+}
+.look-relation .data-wrapper >>> .el-form-item__label {
+    text-align: left !important;
+}
+.form-show >>> .el-form-item__content {
+    margin-left: 0px !important;
+    width: 100%;
+    float: left;
+}
+.form-show >>> .el-form-item__label {
+    text-align: left !important;
+}
+
+/* 时间轴开始 */
+.time-line {
+    position: relative;
+    margin: 20px;
+}
+.time-line-div {
+    position: relative;
+    min-height: 80px;
+    box-sizing: border-box;
+}
+.time-line-div > div:nth-child(1) {
+    position: absolute;
+    left: 0;
+    width: 80px;
+    top: 7px;
+    color: #409eff;
+}
+.time-line-div > div:nth-child(2) {
+    position: absolute;
+    left: 80px;
+    width: 15px;
+    height: 15px;
+    top: 10px;
+    background: #c5c6c8;
+    border-radius: 50%;
+    z-index: 10;
+}
+.time-line-div > div:nth-child(3) {
+    /* 如果是子绝父相 则父盒子无法自适应高度 */
+    position: relative;
+    left: 110px;
+    margin-bottom: 20px;
+    width: 85%;
+    padding: 10px;
+    padding-right: 0px;
+    background: #f2f2f2;
+    font-size: 12px;
+    color: #303133;
+    border-radius: 10px;
+    box-sizing: border-box;
+}
+.time-line-div .search-item-details {
+    max-height: 500px;
+    overflow-y: scroll;
+    padding-right: 10px;
+}
+.time-line-div > div:nth-child(3) .search-item-details::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.time-line-div
+    > div:nth-child(3)
+    .search-item-details::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.08);
+}
+.time-line-div
+    > div:nth-child(3)
+    .search-item-details::-webkit-scrollbar-track {
+    border-radius: 10px;
+}
+.img-dotted {
+    position: absolute;
+    width: 2px;
+    height: 100%;
+    background: #c5c6c8;
+    /* border-radius: 50%; */
+    top: 0;
+    z-index: 1;
+}
+/* 时间轴结束 */
+/* 自定义时间轴右侧样式 */
+.time-line-div .time-line-value {
+    display: flex;
+    flex-wrap: wrap;
+}
+.time-line-div .time-line-value p {
+    margin-right: 10px;
+    line-height: 20px;
+}
+.time-line-div .time-line-value p .lookOver {
+    text-decoration: underline;
+    cursor: pointer;
+}
+/* 任务模块 */
+/* 格式化折叠面板样式 */
+.data_con >>> .el-collapse .el-collapse-item__header {
+    display: block;
+    text-align: center;
+}
+.data_con
+    >>> .el-collapse
+    .el-collapse-item__header
+    .el-icon-arrow-right:before {
+    content: "";
+}
+.data_con >>> .el-collapse .el-collapse-item__header .el-icon-arrow-right {
+    transform: rotate(90deg);
+}
+.data_con >>> .el-collapse .el-collapse-item__content {
+    padding-bottom: 0;
+}
+.data_con
+    >>> .store-task-wrapper
+    .el-collapse
+    .el-collapse-item__header
+    .el-collapse-item__arrow.is-active {
+    transform: rotate(270deg);
+}
+.data_con
+    >>> .zgy-task-wrapper
+    .el-collapse
+    .el-collapse-item__header
+    .el-collapse-item__arrow.is-active {
+    transform: rotate(270deg);
+}
+.data_con
+    >>> .temporary-task-wrapper
+    .el-collapse
+    .el-collapse-item__header
+    .el-collapse-item__arrow.is-active {
+    transform: rotate(270deg);
+}
+.data_con
+    >>> .sale-data-wrapper
+    .el-collapse
+    .el-collapse-item__header
+    .el-collapse-item__arrow.is-active {
+    transform: rotate(270deg);
+}
+.data_con
+    >>> .store-status-wrapper
+    .el-collapse
+    .el-collapse-item__header
+    .el-collapse-item__arrow.is-active {
+    transform: rotate(270deg);
+}
+.data_con
+    >>> .store-info-wrapper
+    .el-collapse
+    .el-collapse-item__header
+    .el-collapse-item__arrow.is-active {
+    transform: rotate(270deg);
+}
+.data_con
+    >>> .server-status-wrapper
+    .el-collapse
+    .el-collapse-item__header
+    .el-collapse-item__arrow.is-active {
+    transform: rotate(270deg);
+}
+.data_con .type-name {
+    font-size: 20px;
+    color: #2196f3;
+    margin-bottom: 6px;
+}
+.data_con .noData-wrapper {
+    display: flex;
+    justify-content: center;
+    /* margin-left: -200px; */
+}
+.preview >>> .el-dialog__body {
+    height: 100%;
+}
+
+.preview >>> .el-dialog__wrapper {
+}
+.ruleWin {
+    width: 500px;
+    height: auto;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    -webkit-transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%);
+    background: #fff;
+    z-index: 1000;
+}
+</style>

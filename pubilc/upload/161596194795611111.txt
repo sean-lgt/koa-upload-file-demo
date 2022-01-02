@@ -1,0 +1,9 @@
+ mounted() {
+        if(this.max<=this.videoList.length) {
+            this.showStatus=false
+        }
+    }
+
+
+ isShow: Boolean,
+
